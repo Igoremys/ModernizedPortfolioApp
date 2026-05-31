@@ -1,11 +1,13 @@
 package com.example.portfolioapp.presentation.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -26,8 +28,9 @@ fun AddPhotoScreen(
     val context = LocalContext.current
 
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
-    GradientBackground {
+    GradientBackground {  // ✅ Используем функцию из MainActivity
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -43,7 +46,18 @@ fun AddPhotoScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
+
             Spacer(Modifier.height(32.dp))
+
+            error?.let { msg ->
+                Text(
+                    text = msg,
+                    color = Color(0xFFFF5252),
+                    fontSize = 14.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+            }
 
             OutlinedTextField(
                 value = title,
@@ -55,6 +69,7 @@ fun AddPhotoScreen(
                     unfocusedBorderColor = Color.Gray
                 )
             )
+
             Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
@@ -67,6 +82,7 @@ fun AddPhotoScreen(
                     unfocusedBorderColor = Color.Gray
                 )
             )
+
             Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
@@ -79,13 +95,14 @@ fun AddPhotoScreen(
                     unfocusedBorderColor = Color.Gray
                 )
             )
+
             Spacer(Modifier.height(32.dp))
 
             Button(
                 onClick = {
                     if (title.isNotBlank() && imageUrl.isNotBlank()) {
-                        viewModel.createPhoto(context, title, description, imageUrl)
                         onSave(title, description, imageUrl)
+                        viewModel.createPhoto(context, title, description, imageUrl)
                     }
                 },
                 modifier = Modifier
@@ -103,6 +120,7 @@ fun AddPhotoScreen(
                     Text("Save Photo", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
+
             Spacer(Modifier.height(16.dp))
 
             TextButton(onClick = onBack) {

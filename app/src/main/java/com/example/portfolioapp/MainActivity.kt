@@ -27,6 +27,7 @@ import com.example.portfolioapp.entity.Photo
 import com.example.portfolioapp.presentation.screens.*
 import com.example.portfolioapp.viewModel.AuthViewModel
 import com.example.portfolioapp.viewModel.PhotoViewModel
+import com.example.portfolioapp.network.TokenManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,35 +54,52 @@ fun PortfolioApp(
     val navController = rememberNavController()
     val context = LocalContext.current
 
-    // ✅ Текущий пользователь
+    // ✅ Текущий пользователь из AuthViewModel
     val currentUser by authViewModel.currentUser.collectAsState()
+
+    // ✅ Локальные переменные для редактирования (кэш)
     var userName by remember { mutableStateOf("Igor Photographer") }
     var userDescription by remember { mutableStateOf("Travel photographer & visual storyteller") }
     var userAvatarUri by remember { mutableStateOf<Uri?>(null) }
 
+    // ✅ Синхронизация: когда данные пришли с сервера — обновляем локальный кэш
     LaunchedEffect(currentUser) {
         currentUser?.let { user ->
             userName = user.fullName
+            userDescription = user.description ?: userDescription
+            userAvatarUri = if (user.avatarUrl.isNullOrEmpty()) null else Uri.parse(user.avatarUrl)
+            println("🔵 [UI] Synced: name=$userName, desc=$userDescription, avatar=${user.avatarUrl}")
         }
     }
 
-    // ✅ Тестовые фото (заглушка, если нет интернета)
+    // ✅ Тестовые фото (заглушка)
     val testPhotos = remember {
         mutableStateListOf<Photo>().apply {
             addAll(
                 listOf(
-                    Photo(1, "Mountain View", "Beautiful sunrise over the Alps", Uri.parse("https://picsum.photos/seed/mountain/800/600"), 124, false, "Igor", Uri.parse("https://picsum.photos/seed/igor/100/100")),
-                    Photo(2, "Urban Night", "City lights and architecture", Uri.parse("https://picsum.photos/seed/urban/800/600"), 89, true, "Igor", Uri.parse("https://picsum.photos/seed/igor/100/100")),
-                    Photo(3, "Ocean Breeze", "Coastal landscape at sunset", Uri.parse("https://picsum.photos/seed/ocean/800/600"), 210, false, "Anna", Uri.parse("https://picsum.photos/seed/anna/100/100")),
-                    Photo(4, "Forest Path", "Misty morning in the woods", Uri.parse("https://picsum.photos/seed/forest/800/600"), 56, false, "Max", Uri.parse("https://picsum.photos/seed/max/100/100"))
+                    Photo(id = 1, title = "Mountain View", description = "Beautiful sunrise over the Alps", uri = Uri.parse("https://picsum.photos/seed/mountain/800/600"), likes = 124, isLiked = false, authorName = "Igor", authorAvatarUri = Uri.parse("https://picsum.photos/seed/igor/100/100")),
+                    Photo(id = 2, title = "Urban Night", description = "City lights and architecture", uri = Uri.parse("https://picsum.photos/seed/urban/800/600"), likes = 89, isLiked = true, authorName = "Igor", authorAvatarUri = Uri.parse("https://picsum.photos/seed/igor/100/100")),
+                    Photo(id = 3, title = "Ocean Breeze", description = "Coastal landscape at sunset", uri = Uri.parse("https://picsum.photos/seed/ocean/800/600"), likes = 210, isLiked = false, authorName = "Anna", authorAvatarUri = Uri.parse("https://picsum.photos/seed/anna/100/100")),
+                    Photo(id = 4, title = "Forest Path", description = "Misty morning in the woods", uri = Uri.parse("https://picsum.photos/seed/forest/800/600"), likes = 56, isLiked = false, authorName = "Max", authorAvatarUri = Uri.parse("https://picsum.photos/seed/max/100/100"))
                 )
             )
         }
     }
 
+    // ✅ Глобальный список всех фото
+    val allPhotos = remember { mutableStateListOf<Photo>() }
     val onLikeClick: (Photo) -> Unit = { updated ->
-        val idx = testPhotos.indexOfFirst { it.id == updated.id }
-        if (idx != -1) testPhotos[idx] = updated
+        val idx = allPhotos.indexOfFirst { it.id == updated.id }
+        if (idx != -1) allPhotos[idx] = updated
+    }
+
+    // ✅ Загружаем профиль при старте, если токен есть
+    LaunchedEffect(Unit) {
+        val token = TokenManager.getToken()
+        println("🔵 [STARTUP] Token: ${if (token != null) "OK" else "NULL"}")
+        if (token != null) {
+            authViewModel.loadCurrentUser(context)
+        }
     }
 
     NavHost(navController = navController, startDestination = "login") {
@@ -104,7 +122,7 @@ fun PortfolioApp(
             )
         }
 
-        // 🏠 HOME (используем apiPhotos вместо photos)
+        // 🏠 HOME
         composable("home") {
             val photoViewModel: PhotoViewModel = viewModel()
             val apiPhotos by photoViewModel.photos.collectAsState()
@@ -114,26 +132,31 @@ fun PortfolioApp(
                 photoViewModel.loadPhotos(localContext)
             }
 
-            // Используем фото с сервера, если есть, иначе тестовые
-            val displayPhotos = if (apiPhotos.isNotEmpty()) {
-                apiPhotos.map { dto ->
-                    com.example.portfolioapp.entity.Photo(
-                        id = dto.id.toInt(),
-                        title = dto.title,
-                        description = dto.description,
-                        uri = android.net.Uri.parse(dto.imageUrl),
-                        likes = 0,
-                        isLiked = false,
-                        authorName = dto.author,
-                        authorAvatarUri = android.net.Uri.parse("")
+            LaunchedEffect(apiPhotos, currentUser) {
+                if (apiPhotos.isNotEmpty()) {
+                    allPhotos.clear()
+                    allPhotos.addAll(
+                        apiPhotos.map { dto ->
+                            Photo(
+                                id = dto.id.toInt(),
+                                title = dto.title,
+                                description = dto.description,
+                                uri = Uri.parse(dto.imageUrl),
+                                likes = 0,
+                                isLiked = false,
+                                authorName = currentUser?.fullName ?: dto.author,
+                                authorAvatarUri = if (currentUser?.avatarUrl.isNullOrEmpty()) null else Uri.parse(currentUser!!.avatarUrl)
+                            )
+                        }
                     )
+                } else if (allPhotos.isEmpty()) {
+                    allPhotos.clear()
+                    allPhotos.addAll(testPhotos)
                 }
-            } else {
-                testPhotos.toList()
             }
 
             HomeScreen(
-                photos = displayPhotos,
+                photos = allPhotos.toList(),
                 onPhotoClick = { photo -> navController.navigate("photo_detail/${photo.id}") },
                 onLikeClick = onLikeClick,
                 onNavigateToProfile = { navController.navigate("profile") },
@@ -148,57 +171,84 @@ fun PortfolioApp(
             val apiPhotos by photoViewModel.photos.collectAsState()
             val localContext = LocalContext.current
 
-            // Загружаем фото при входе в профиль
             LaunchedEffect(Unit) {
                 photoViewModel.loadPhotos(localContext)
             }
 
-            // Фильтруем фото по email текущего пользователя
             val userPhotos = apiPhotos.filter {
                 it.author == (currentUser?.email ?: "")
             }.map { dto ->
-                com.example.portfolioapp.entity.Photo(
+                Photo(
                     id = dto.id.toInt(),
                     title = dto.title,
                     description = dto.description,
-                    uri = android.net.Uri.parse(dto.imageUrl),
+                    uri = Uri.parse(dto.imageUrl),
                     likes = 0,
                     isLiked = false,
                     authorName = currentUser?.fullName ?: "User",
-                    authorAvatarUri = userAvatarUri
+                    authorAvatarUri = if (currentUser?.avatarUrl.isNullOrEmpty()) null else Uri.parse(currentUser!!.avatarUrl)
                 )
             }
 
             ProfileScreen(
                 userName = currentUser?.fullName ?: userName,
-                avatarUri = userAvatarUri,
-                description = userDescription,
-                myPhotos = if (userPhotos.isNotEmpty()) userPhotos else testPhotos.filter { it.authorName == (currentUser?.fullName ?: userName) },
+                avatarUri = if (currentUser?.avatarUrl.isNullOrEmpty()) userAvatarUri else Uri.parse(currentUser!!.avatarUrl),
+                description = currentUser?.description ?: userDescription,
+                myPhotos = if (userPhotos.isNotEmpty()) userPhotos else allPhotos.filter { it.authorName == (currentUser?.fullName ?: userName) },
                 onSettings = { navController.navigate("settings") },
-                onPhotoClick = { photo ->
-                    navController.navigate("photo_detail/${photo.id}")
-                }
+                onPhotoClick = { photo -> navController.navigate("photo_detail/${photo.id}") }
             )
         }
 
         // ⚙️ SETTINGS
         composable("settings") {
+            // Локальные переменные для редактирования
+            var editedName by remember { mutableStateOf(currentUser?.fullName ?: userName) }
+            var editedDescription by remember { mutableStateOf(currentUser?.description ?: userDescription) }
+            var editedAvatar by remember { mutableStateOf(authViewModel.getAvatarUri() ?: userAvatarUri) }
+
             SettingsScreen(
-                currentName = currentUser?.fullName ?: userName,
-                currentAvatarUri = userAvatarUri,
-                currentDescription = userDescription,
-                onNameChange = { newName ->
-                    // TODO: Здесь можно отправить на сервер
-                    userName = newName
-                },
-                onDescriptionChange = { newDesc ->
-                    userDescription = newDesc
-                },
+                currentName = editedName,
+                currentAvatarUri = editedAvatar,
+                currentDescription = editedDescription,
+
+                // Просто обновляем локальное состояние при вводе
+                onNameChange = { editedName = it },
+                onDescriptionChange = { editedDescription = it },
                 onAvatarChange = { newUri ->
-                    userAvatarUri = newUri
+                    editedAvatar = newUri  // Обновляем локально
+                    // ✅ Загружаем аватар на сервер (НОВЫЙ метод!)
+                    if (newUri != null) {
+                        authViewModel.uploadAvatar(context, newUri)
+                    }
                 },
+
+                onSave = {
+                    println("🔵 [SAVE] Saving profile: name=$editedName, desc=$editedDescription, avatar=$editedAvatar")
+
+                    // Обновляем локальный кэш
+                    userName = editedName
+                    userDescription = editedDescription
+                    userAvatarUri = editedAvatar
+
+                    // Отправляем на сервер ВСЕ данные
+                    authViewModel.updateProfile(
+                        context,
+                        editedName,
+                        editedDescription
+                    )
+
+                    navController.popBackStack()
+                },
+
                 onBack = { navController.popBackStack() },
-                authViewModel = authViewModel  // ✅ Передаём ViewModel для logout
+                onLogout = {
+                    authViewModel.logout(context)
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                },
+                authViewModel = authViewModel
             )
         }
 
@@ -233,8 +283,7 @@ fun PortfolioApp(
             arguments = listOf(navArgument("photoId") { type = NavType.IntType })
         ) { backStackEntry ->
             val photoId = backStackEntry.arguments?.getInt("photoId")
-            // Ищем в тестовых фото (так как они в памяти)
-            val photo = testPhotos.find { it.id == photoId }
+            val photo = allPhotos.find { it.id == photoId }
             if (photo != null) {
                 PhotoDetailScreen(photo = photo, onBack = { navController.popBackStack() })
             } else {
@@ -261,7 +310,6 @@ fun RegisterScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val authSuccess by viewModel.authSuccess.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
 
     LaunchedEffect(authSuccess) {
         if (authSuccess != null) {
@@ -281,12 +329,7 @@ fun RegisterScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Create Account",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Create Account", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
 
             error?.let { msg ->
@@ -332,13 +375,9 @@ fun RegisterScreen(
 
             Button(
                 onClick = { viewModel.register(email, password, fullName, context) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF7C4DFF)
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
                 enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && fullName.isNotBlank()
             ) {
                 if (isLoading) {
@@ -348,7 +387,6 @@ fun RegisterScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-
             TextButton(onClick = onBackToLogin) {
                 Text("Already have an account? Login", color = Color(0xFF7C4DFF))
             }

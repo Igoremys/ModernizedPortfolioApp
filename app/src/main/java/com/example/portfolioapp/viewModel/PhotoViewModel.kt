@@ -19,26 +19,33 @@ class PhotoViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    // 🔥 Загрузка всех фото с сервера
     fun loadPhotos(context: Context) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
             try {
-                val token = TokenManager.getToken(context) ?: run {
+                // ✅ ПРОВЕРКА: токен есть в кэше (для отладки)
+                val token = TokenManager.getToken()
+                if (token == null) {
                     _error.value = "Пользователь не авторизован"
                     _isLoading.value = false
                     return@launch
                 }
 
-                val response = RetrofitClient.api.getAllPhotos(token)
+                // ✅ БЕЗ токена — интерцептор добавит его сам!
+                val response = RetrofitClient.api.getAllPhotos()
 
                 if (response.isSuccessful && response.body() != null) {
                     _photos.value = response.body()!!
+                    println("🔵 [DEBUG] Загружено фото: ${response.body()?.size}")
                 } else {
+                    println("🔴 [DEBUG] Ошибка загрузки фото: ${response.code()}")
                     _error.value = "Ошибка загрузки: ${response.code()}"
                 }
             } catch (e: Exception) {
+                println("🔴 [DEBUG] Исключение: ${e.message}")
                 _error.value = "Нет подключения: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -46,29 +53,38 @@ class PhotoViewModel : ViewModel() {
         }
     }
 
+    // 🔥 Создание нового фото на сервере
     fun createPhoto(context: Context, title: String, description: String, imageUrl: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
             try {
-                val token = TokenManager.getToken(context) ?: run {
+                val token = TokenManager.getToken()
+                if (token == null) {
                     _error.value = "Пользователь не авторизован"
                     _isLoading.value = false
                     return@launch
                 }
 
                 val request = PhotoCreateRequest(title, description, imageUrl)
-                val response = RetrofitClient.api.createPhoto(request, token)
+
+                // ✅ БЕЗ токена — интерцептор добавит его сам!
+                val response = RetrofitClient.api.createPhoto(request)
 
                 if (response.isSuccessful && response.body() != null) {
+                    // Добавляем новое фото в список
                     val currentList = _photos.value.toMutableList()
                     currentList.add(0, response.body()!!)
                     _photos.value = currentList
+                    println("🔵 [DEBUG] Фото создано: ${response.body()?.title}")
                 } else {
+                    val errorBody = response.errorBody()?.string()
+                    println("🔴 [DEBUG] Ошибка создания: ${response.code()}, body: $errorBody")
                     _error.value = "Ошибка создания: ${response.code()}"
                 }
             } catch (e: Exception) {
+                println("🔴 [DEBUG] Исключение: ${e.message}")
                 _error.value = "Нет подключения: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -76,19 +92,25 @@ class PhotoViewModel : ViewModel() {
         }
     }
 
+    // 🔥 Удаление фото с сервера
     fun deletePhoto(context: Context, photoId: Long) {
         viewModelScope.launch {
             try {
-                val token = TokenManager.getToken(context) ?: return@launch
+                val token = TokenManager.getToken()
+                if (token == null) return@launch
 
-                val response = RetrofitClient.api.deletePhoto(photoId, token)
+                // ✅ БЕЗ токена — интерцептор добавит его сам!
+                val response = RetrofitClient.api.deletePhoto(photoId)
 
                 if (response.isSuccessful) {
+                    // Удаляем из списка
                     val currentList = _photos.value.toMutableList()
                     currentList.removeAll { it.id == photoId }
                     _photos.value = currentList
+                    println("🔵 [DEBUG] Фото удалено: $photoId")
                 }
             } catch (e: Exception) {
+                println("🔴 [DEBUG] Ошибка удаления: ${e.message}")
                 _error.value = "Ошибка удаления: ${e.message}"
             }
         }

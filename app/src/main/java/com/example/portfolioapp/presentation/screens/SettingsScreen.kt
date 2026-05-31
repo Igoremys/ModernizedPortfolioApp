@@ -1,5 +1,8 @@
 package com.example.portfolioapp.presentation.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,17 +28,44 @@ import com.example.portfolioapp.viewModel.AuthViewModel
 @Composable
 fun SettingsScreen(
     currentName: String,
-    currentAvatarUri: android.net.Uri?,
+    currentAvatarUri: Uri?,
     currentDescription: String,
-    onNameChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
-    onAvatarChange: (android.net.Uri?) -> Unit,
+    onNameChange: (String) -> Unit,      // Для локального обновления (можно оставить)
+    onDescriptionChange: (String) -> Unit, // Для локального обновления (можно оставить)
+    onAvatarChange: (Uri?) -> Unit,       // Для локального обновления (можно оставить)
     onBack: () -> Unit,
+    onLogout: () -> Unit,
+
+    // ✅ НОВЫЙ параметр: сохранение ВСЕХ изменений одним запросом
+    onSave: () -> Unit,
+
     authViewModel: AuthViewModel = viewModel()
 ) {
+    // ✅ Локальные состояния для редактирования
     var name by remember { mutableStateOf(currentName) }
     var description by remember { mutableStateOf(currentDescription) }
+    var avatarUri by remember { mutableStateOf(currentAvatarUri) }
+
     val context = LocalContext.current
+
+    // ✅ СИНХРОНИЗАЦИЯ: если пришли новые данные из ViewModel — обновляем локальные состояния
+    LaunchedEffect(currentName) {
+        name = currentName
+    }
+    LaunchedEffect(currentDescription) {
+        description = currentDescription
+    }
+    LaunchedEffect(currentAvatarUri) {
+        avatarUri = currentAvatarUri
+    }
+
+    // 📸 Лаунчер для выбора фото
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        avatarUri = uri
+        onAvatarChange(uri)  // Обновляем локальное состояние
+    }
 
     GradientBackground {
         Column(
@@ -64,94 +94,80 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-
             Spacer(Modifier.height(32.dp))
 
-            // Avatar
+            // 👤 Avatar
             AsyncImage(
-                model = currentAvatarUri,
+                model = avatarUri,
                 contentDescription = "Avatar",
                 modifier = Modifier
                     .size(120.dp)
                     .clip(CircleShape)
-                    .clickable { /* TODO: Выбор фото из галереи */ },
-                contentScale = ContentScale.Crop
+                    .clickable { imagePicker.launch("image/*") },
+                contentScale = ContentScale.Crop,
+                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color(0xFF27272A)),
+                error = androidx.compose.ui.graphics.painter.ColorPainter(Color(0xFF3F3F46))
             )
-
-            TextButton(onClick = { /* TODO: Выбор фото */ }) {
+            TextButton(onClick = { imagePicker.launch("image/*") }) {
                 Text("Change Avatar", color = Color(0xFF7C4DFF))
             }
-
             Spacer(Modifier.height(32.dp))
 
-            // Name
+            // ✏️ Name
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = {
+                    name = it
+                    onNameChange(it)  // Для локального кэша в MainActivity
+                },
                 label = { Text("Display Name", color = Color.LightGray) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF7C4DFF),
-                    unfocusedBorderColor = Color.Gray,
-                    focusedLabelColor = Color(0xFF7C4DFF),
-                    unfocusedLabelColor = Color.LightGray
+                    unfocusedBorderColor = Color.Gray
                 )
             )
-
             Spacer(Modifier.height(16.dp))
 
-            // Description
+            // 📝 Description
             OutlinedTextField(
                 value = description,
-                onValueChange = { description = it },
+                onValueChange = {
+                    description = it
+                    onDescriptionChange(it)  // Для локального кэша в MainActivity
+                },
                 label = { Text("Bio", color = Color.LightGray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
+                modifier = Modifier.fillMaxWidth().height(120.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF7C4DFF),
-                    unfocusedBorderColor = Color.Gray,
-                    focusedLabelColor = Color(0xFF7C4DFF),
-                    unfocusedLabelColor = Color.LightGray
+                    unfocusedBorderColor = Color.Gray
                 )
             )
-
             Spacer(Modifier.height(32.dp))
 
-            // Save button
+            // 💾 Save button — ✅ ИСПРАВЛЕНО: один вызов onSave()
             Button(
                 onClick = {
-                    // ✅ Сохраняем изменения
-                    onNameChange(name)
-                    onDescriptionChange(description)
-                    onBack()
+                    // ✅ Вызываем ЕДИНЫЙ колбэк для сохранения ВСЕХ изменений
+                    onSave()
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF7C4DFF)
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF))
             ) {
                 Text("Save Changes", fontWeight = FontWeight.Bold, color = Color.White)
             }
-
             Spacer(Modifier.height(16.dp))
 
-            // Logout button
+            // 🚪 Logout
             OutlinedButton(
                 onClick = {
                     authViewModel.logout(context)
-                    // TODO: Navigate to login
+                    onLogout()
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFFF5252)
-                )
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
             ) {
                 Text("Logout", fontWeight = FontWeight.Bold)
             }
