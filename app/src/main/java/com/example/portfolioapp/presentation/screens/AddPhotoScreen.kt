@@ -1,149 +1,112 @@
 package com.example.portfolioapp.presentation.screens
 
-import com.example.portfolioapp.presentation.components.GradientBackground
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.portfolioapp.viewModel.PhotoViewModel
 
-@OptIn(ExperimentalMaterial3Api::class) // ← Добавлено: подавление предупреждения
 @Composable
 fun AddPhotoScreen(
-    onSave: (String, String, Uri?) -> Unit
+    onSave: (String, String, String) -> Unit,
+    onBack: () -> Unit,
+    viewModel: PhotoViewModel = viewModel()
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var imageUrl by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-        selectedImageUri = it
-    }
+    val isLoading by viewModel.isLoading.collectAsState()
 
     GradientBackground {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("New Project", color = Color.White, fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = { onSave(title, description, selectedImageUri) }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(40.dp))
+
+            Text(
+                "Add New Photo",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(32.dp))
+
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title", color = Color.LightGray) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF7C4DFF),
+                    unfocusedBorderColor = Color.Gray
                 )
-            },
-            containerColor = Color.Transparent
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp)
-            ) {
-                // Выбор фото
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF2A2A2A))
-                        .border(2.dp, Color(0xFF7C4DFF).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                        .clickable { launcher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (selectedImageUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(selectedImageUri)
-                                .build(),
-                            contentDescription = "Selected",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
-                        )
-                    } else {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.Image,
-                                null,
-                                tint = Color(0xFF7C4DFF),
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Tap to select photo",
-                                color = Color.LightGray,
-                                fontSize = 14.sp
-                            )
-                        }
+            )
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description", color = Color.LightGray) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF7C4DFF),
+                    unfocusedBorderColor = Color.Gray
+                )
+            )
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = { Text("Image URL", color = Color.LightGray) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF7C4DFF),
+                    unfocusedBorderColor = Color.Gray
+                )
+            )
+            Spacer(Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    if (title.isNotBlank() && imageUrl.isNotBlank()) {
+                        viewModel.createPhoto(context, title, description, imageUrl)
+                        onSave(title, description, imageUrl)
                     }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF7C4DFF)
+                ),
+                enabled = !isLoading && title.isNotBlank() && imageUrl.isNotBlank()
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Save Photo", fontWeight = FontWeight.Bold, color = Color.White)
                 }
+            }
+            Spacer(Modifier.height(16.dp))
 
-                Spacer(Modifier.height(24.dp))
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title", color = Color.LightGray) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF7C4DFF),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF7C4DFF),
-                        unfocusedLabelColor = Color.LightGray,
-                        cursorColor = Color(0xFF7C4DFF)
-                    )
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description", color = Color.LightGray) },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF7C4DFF),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF7C4DFF),
-                        unfocusedLabelColor = Color.LightGray,
-                        cursorColor = Color(0xFF7C4DFF)
-                    )
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                Button(
-                    onClick = { onSave(title, description, selectedImageUri) },
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
-                    enabled = title.isNotBlank(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF7C4DFF)
-                    )
-                ) {
-                    Text("Save Project", fontWeight = FontWeight.Bold, color = Color.White)
-                }
+            TextButton(onClick = onBack) {
+                Text("Cancel", color = Color(0xFF7C4DFF))
             }
         }
     }

@@ -29,7 +29,7 @@ com.example.portfolioapp.test.app-customview-poolingcontainer-1.0.0-27 C:\Users\
 com.example.portfolioapp.test.app-emoji2-1.3.0-28 C:\Users\seses\.gradle\caches\9.0-milestone-1\transforms\ee6fd21470200f1d3cebfc52852eaca6\transformed\emoji2-1.3.0\res
 com.example.portfolioapp.test.app-ui-unit-release-29 C:\Users\seses\.gradle\caches\9.0-milestone-1\transforms\f21154907284afb1565d36705d744b6a\transformed\ui-unit-release\res
 com.example.portfolioapp.test.app-ui-geometry-release-30 C:\Users\seses\.gradle\caches\9.0-milestone-1\transforms\f8ab3576256264fce1507a738407a191\transformed\ui-geometry-release\res
-com.example.portfolioapp.test.app-androidTest-31 C:\Users\seses\Downloads\ModernizedPortfolioApp\app\build\generated\res\resValues\androidTest\debug
-com.example.portfolioapp.test.app-mergeDebugAndroidTestResources-32 C:\Users\seses\Downloads\ModernizedPortfolioApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.example.portfolioapp.test.app-mergeDebugAndroidTestResources-33 C:\Users\seses\Downloads\ModernizedPortfolioApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.example.portfolioapp.test.app-merged_res-34 C:\Users\seses\Downloads\ModernizedPortfolioApp\app\build\intermediates\merged_res\debugAndroidTest
+com.example.portfolioapp.test.app-androidTest-31 C:\Users\seses\Downloads\portfolio\ModernizedPortfolioApp\app\build\generated\res\resValues\androidTest\debug
+com.example.portfolioapp.test.app-mergeDebugAndroidTestResources-32 C:\Users\seses\Downloads\portfolio\ModernizedPortfolioApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.example.portfolioapp.test.app-mergeDebugAndroidTestResources-33 C:\Users\seses\Downloads\portfolio\ModernizedPortfolioApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.example.portfolioapp.test.app-merged_res-34 C:\Users\seses\Downloads\portfolio\ModernizedPortfolioApp\app\build\intermediates\merged_res\debugAndroidTest
