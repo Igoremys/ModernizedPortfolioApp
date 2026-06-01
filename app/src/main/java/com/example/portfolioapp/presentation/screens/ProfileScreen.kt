@@ -1,5 +1,6 @@
 package com.example.portfolioapp.presentation.screens
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,86 +19,80 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.portfolioapp.entity.Photo
+import coil.request.ImageRequest
+import com.example.portfolioapp.network.PhotoDto
+import com.example.portfolioapp.presentation.components.GradientBackground
+import com.example.portfolioapp.viewModel.AuthViewModel
+import com.example.portfolioapp.viewModel.PhotoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    userName: String,
-    avatarUri: android.net.Uri?,
-    description: String,
-    myPhotos: List<Photo>,
     onSettings: () -> Unit,
-    onPhotoClick: (Photo) -> Unit
+    onPhotoClick: (PhotoDto) -> Unit,
+    authViewModel: AuthViewModel = viewModel(),
+    photoViewModel: PhotoViewModel = viewModel()
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFF09090B),
-                        Color(0xFF18181B),
-                        Color(0xFF27272A)
-                    )
-                )
-            )
-    ) {
+    val context = LocalContext.current
+
+    // Подписываемся на состояния ViewModel
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val photos by photoViewModel.photos.collectAsState()
+    val isLoading by photoViewModel.isLoading.collectAsState()
+
+    // Фильтруем только фото текущего пользователя
+    val myPhotos = remember(currentUser, photos) {
+        photos.filter { photo ->
+            photo.author == currentUser?.email || photo.author == currentUser?.fullName
+        }
+    }
+
+    GradientBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Header
+            // Header профиля
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Аватар
-                if (avatarUri != null) {
-                    AsyncImage(
-                        model = avatarUri,
-                        contentDescription = "Avatar",
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .clickable { onSettings() },
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF27272A))
-                            .clickable { onSettings() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Avatar",
-                            tint = Color.Gray,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
+                val avatarUrl = currentUser?.avatarUrl
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(if (avatarUrl.isNullOrEmpty()) null else avatarUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Avatar",
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .clickable { onSettings() },
+                    contentScale = ContentScale.Crop,
+                    placeholder = ColorPainter(Color(0xFF27272A)),
+                    error = ColorPainter(Color(0xFF3F3F46))
+                )
 
                 Spacer(Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = userName,
+                        text = currentUser?.fullName ?: "Пользователь",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = description,
+                        text = currentUser?.description ?: "Нет описания",
                         color = Color.LightGray,
                         fontSize = 14.sp,
                         maxLines = 2
@@ -115,14 +110,14 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Photos grid header
+            // Заголовок сетки
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "My Photos",
+                    text = "Мои фото",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -137,8 +132,17 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Photos grid
-            if (myPhotos.isEmpty()) {
+            // Сетка фото или состояния загрузки/пустоты
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF7C4DFF))
+                }
+            } else if (myPhotos.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -154,12 +158,12 @@ fun ProfileScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "No photos yet",
+                            text = "Нет опубликованных фото",
                             color = Color.Gray,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Tap + to add your first photo",
+                            text = "Нажмите + в ленте, чтобы добавить первое фото",
                             color = Color(0xFF7C4DFF),
                             fontSize = 12.sp
                         )
@@ -172,7 +176,7 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(myPhotos) { photo ->
+                    items(myPhotos, key = { it.id }) { photo ->
                         PhotoGridItem(
                             photo = photo,
                             onClick = { onPhotoClick(photo) }
@@ -184,12 +188,13 @@ fun ProfileScreen(
     }
 }
 
-// ✅ Отдельный компонент для элемента сетки фото
+// ✅ Отдельный компонент для элемента сетки (можно вынести в components/)
 @Composable
 private fun PhotoGridItem(
-    photo: Photo,
+    photo: PhotoDto,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -197,13 +202,18 @@ private fun PhotoGridItem(
             .clickable(onClick = onClick)
     ) {
         AsyncImage(
-            model = photo.uri,
+            model = ImageRequest.Builder(context)
+                .data(photo.imageUrl)
+                .crossfade(true)
+                .build(),
             contentDescription = photo.title,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
+            placeholder = ColorPainter(Color(0xFF18181B)),
+            error = ColorPainter(Color(0xFF3F3F46))
         )
 
-        // Градиент внизу
+        // Затемнение внизу для читаемости текста
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -219,7 +229,6 @@ private fun PhotoGridItem(
                 )
         )
 
-        // Название фото
         Text(
             text = photo.title,
             color = Color.White,

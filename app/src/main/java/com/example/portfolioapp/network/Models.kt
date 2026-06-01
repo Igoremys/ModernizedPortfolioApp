@@ -2,20 +2,17 @@ package com.example.portfolioapp.network
 
 import com.google.gson.annotations.SerializedName
 
-// 🔐 Запрос авторизации
 data class AuthRequest(
     val email: String,
     val password: String,
     val fullName: String? = null
 )
 
-// 🔐 Ответ авторизации
 data class AuthResponse(
     val accessToken: String,
     val user: UserDto
 )
 
-// 👤 Данные пользователя
 data class UserDto(
     val id: Long,
     val email: String,
@@ -25,25 +22,29 @@ data class UserDto(
     val description: String? = null
 )
 
-// 📸 Фотография (ответ от сервера)
+// ✅ PhotoDto: добавляем fallback-поля на случай, если сервер меняет структуру
 data class PhotoDto(
     val id: Long,
     val title: String,
     val description: String,
     val imageUrl: String,
-    val author: String,
+    // ✅ Если сервер отдаёт authorName вместо author — используем @SerializedName
+    @SerializedName("author") val author: String = "",
+    @SerializedName("authorName") val authorNameFallback: String? = null,
     val createdAt: String,
     val updatedAt: String
-)
+) {
+    // ✅ Вспомогательное свойство: возвращает корректное имя автора
+    val resolvedAuthor: String
+        get() = authorNameFallback?.takeIf { it.isNotBlank() } ?: author.takeIf { it.isNotBlank() && !it.contains("@") } ?: author.substringBefore("@", "Пользователь")
+}
 
-// 📸 Запрос создания фото
 data class PhotoCreateRequest(
     val title: String,
     val description: String,
     val imageUrl: String
 )
 
-// ✅ Запрос обновления профиля (ТОЛЬКО ОДИН РАЗ!)
 data class ProfileUpdateRequest(
     @SerializedName("fullName") val fullName: String? = null,
     @SerializedName("avatarUrl") val avatarUrl: String? = null,

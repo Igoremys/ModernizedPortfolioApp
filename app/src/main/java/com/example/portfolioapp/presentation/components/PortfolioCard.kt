@@ -5,15 +5,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +32,7 @@ fun ModernPhotoCard(
 ) {
     var isLiked by remember { mutableStateOf(photo.isLiked) }
     var likesCount by remember { mutableStateOf(photo.likes) }
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -39,9 +43,9 @@ fun ModernPhotoCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-
+            // 🖼️ Изображение с placeholder и error
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+                model = ImageRequest.Builder(context)
                     .data(photo.uri)
                     .crossfade(true)
                     .build(),
@@ -50,7 +54,9 @@ fun ModernPhotoCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
-                    .clickable { onPhotoClick(photo) }
+                    .clickable { onPhotoClick(photo) },
+                placeholder = ColorPainter(Color(0xFF18181B)),
+                error = ColorPainter(Color(0xFF3F3F46))
             )
 
             Row(
@@ -64,27 +70,26 @@ fun ModernPhotoCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // 👤 Аватар автора
                     if (photo.authorAvatarUri != null) {
                         AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
+                            model = ImageRequest.Builder(context)
                                 .data(photo.authorAvatarUri)
+                                .crossfade(true)
                                 .build(),
                             contentDescription = "Author",
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
+                            modifier = Modifier.size(40.dp).clip(CircleShape),
+                            placeholder = ColorPainter(Color(0xFF7C4DFF)),
+                            error = ColorPainter(Color(0xFF7C4DFF))
                         )
                     } else {
                         Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF7C4DFF)),
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF7C4DFF)),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = photo.authorName.firstOrNull()?.toString() ?: "?",
+                                text = photo.authorName.firstOrNull()?.uppercase() ?: "?",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
@@ -95,20 +100,23 @@ fun ModernPhotoCard(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column {
+                        // ✅ Безопасное отображение имени автора (не email!)
                         Text(
-                            text = photo.authorName,
+                            text = photo.authorName.takeIf { it.isNotEmpty() && !it.contains("@") }
+                                ?: photo.authorName.substringBefore("@"),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
                         Text(
-                            text = photo.description.take(20) + "...",
+                            text = photo.description.take(30) + if (photo.description.length > 30) "..." else "",
                             color = Color.LightGray,
                             fontSize = 12.sp
                         )
                     }
                 }
 
+                // ❤️ Лайк с иконками Material
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -123,12 +131,7 @@ fun ModernPhotoCard(
                         .padding(8.dp)
                 ) {
                     Icon(
-                        painter = painterResource(
-                            id = if (isLiked)
-                                android.R.drawable.btn_star_big_on
-                            else
-                                android.R.drawable.btn_star_big_off
-                        ),
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Like",
                         tint = if (isLiked) Color(0xFFFF6F91) else Color.White,
                         modifier = Modifier.size(24.dp)

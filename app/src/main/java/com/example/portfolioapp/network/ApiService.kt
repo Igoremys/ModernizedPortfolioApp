@@ -48,4 +48,16 @@ interface ApiService {
         @Header("Authorization") token: String,  // ← Токен передаём вручную, так как это Multipart
         @Part file: MultipartBody.Part
     ): Response<Map<String, String>>  // ← Ожидаем ответ: {"url": "http://..."}
+
+    // Поиск пользователей
+    @GET("users/search")
+    suspend fun searchUsers(@Query("keyword") keyword: String): Response<List<UserDto>>
+
+    // Получение профиля по ID
+    @GET("users/{id}")
+    suspend fun getUserById(@Path("id") id: Long): Response<UserDto>
+
+    // Фотографии конкретного автора
+    @GET("photos")
+    suspend fun getPhotosByAuthorId(@Query("authorId") authorId: Long): Response<List<PhotoDto>>
 }
